@@ -14,7 +14,7 @@ import os
 import shutil
 import cv2
 
-GPU_ID = 3
+GPU_ID = 2
 input_list_train = 'train_input_shuffled.txt'
 label_list_train = 'train_target_shuffled.txt'
 input_list_val = 'val_input_shuffled.txt'
@@ -24,12 +24,12 @@ if __name__ == "__main__":
     import input_util
     import model
 
-    BATCH_SIZE = 32
+    BATCH_SIZE = 16
     NO_OF_EPOCHS = 1000
-    INITIAL_LEARNING_RATE = [1e-5]
-    DECAY_STEP = 500
+    INITIAL_LEARNING_RATE = [5e-4]
+    DECAY_STEP = 1000
     DECAY_RATE = 0.1
-    LAMBDA = [0.1]
+    LAMBDA = [0.01]
     HEIGHT = 512
     WIDTH = 512
 
@@ -57,8 +57,8 @@ if __name__ == "__main__":
     for index_x, lmbd in enumerate(LAMBDA):
         for index_y, in_lr in enumerate(INITIAL_LEARNING_RATE):
             
-            if os.path.exists('./trained_model'):
-                shutil.rmtree('./trained_model')
+#             if os.path.exists('./trained_model'):
+#                 shutil.rmtree('./trained_model')
             os.makedirs('./trained_model', exist_ok = True)
             np.savetxt('./trained_model/mean.txt', mean)
             np.savetxt('./trained_model/variance.txt', variance)
@@ -84,7 +84,7 @@ if __name__ == "__main__":
             # learning_rate = tf.constant(in_lr)
 
             with tf.device('/gpu:{}'.format(GPU_ID)):
-                logits = model.dnn(image_queue, mean, variance, phase)
+                logits = model.FCN2(image_queue, mean, variance, phase)
                 loss, train_step = model.train(logits, label_queue, learning_rate, lmbd, step, tf.trainable_variables())
                 accuracy = model.old_evaluate(logits, label_queue)
 

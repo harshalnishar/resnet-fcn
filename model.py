@@ -12,7 +12,7 @@ import input_util
 import numpy as np
 import cv2
 
-def dnn(image, mean, variance, phase):
+def FCN1(image, mean, variance, phase):
     """
     function defining fcn model
     :param image: input image tensor in the flattened form
@@ -44,23 +44,171 @@ def dnn(image, mean, variance, phase):
     conv1 = tf.layers.conv2d(intermediate_out[3], filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
                              activation = tf.nn.relu, name = 'conv1_1x1')
     
-    conv2 = tf.layers.conv2d(conv1, filters = 1024, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
+    conv2 = tf.layers.conv2d(conv1, filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
                              activation = tf.nn.relu, name = 'conv2_1x1')
 
-    conv3 = tf.layers.conv2d(conv2, filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
+    up1 = tf.layers.conv2d_transpose(conv2, filters = 128, kernel_size = [8, 8], strides = (4, 4), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_1')
+
+    up2 = tf.layers.conv2d_transpose(intermediate_out[2], filters = 128, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_2')
+
+    up3 = intermediate_out[1]
+
+    up4 = tf.layers.conv2d_transpose(up3 + up2 + up1, filters = 2, kernel_size = [16, 16], strides = (8, 8), padding = 'same',
+                                     activation = None, name = 'upsample_4')
+
+    return up4
+
+
+def FCN2(image, mean, variance, phase):
+    """
+    function defining fcn model
+    :param image: input image tensor in the flattened form
+    :return: model output tensor node
+    """
+
+    image = tf.cast(image, tf.float32)
+    image_reshape = tf.reshape(image, [-1, 512, 512, 3])
+
+    image_norm = tf.nn.batch_normalization(image_reshape, mean, variance, None, None, 0.0001)
+
+    model = resnet_model.Model(
+        resnet_size = 50,
+        bottleneck = False,
+        num_classes = 2,
+        num_filters = 64,
+        kernel_size = 7,
+        conv_stride = 2,
+        first_pool_size = 3,
+        first_pool_stride = 2,
+        block_sizes = [3, 4, 6, 3],
+        block_strides = [1, 2, 2, 2],
+        resnet_version = 1,
+        data_format = 'channels_last',
+    )
+    resnet_out = model(image_norm, phase)
+    intermediate_out = [v.values()[0] for v in tf.get_default_graph().get_operations() if 'block_layer' in v.name]
+
+    conv1 = tf.layers.conv2d(intermediate_out[3], filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
                              activation = tf.nn.relu, name = 'conv1_1x1')
     
+    conv2 = tf.layers.conv2d(conv1, filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
+                             activation = tf.nn.relu, name = 'conv2_1x1')
+
+    up1 = tf.layers.conv2d_transpose(conv2, filters = 64, kernel_size = [16, 16], strides = (8, 8), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_1')
+
+    up2 = tf.layers.conv2d_transpose(intermediate_out[2], filters = 64, kernel_size = [8, 8], strides = (4, 4), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_2')
+
+    up3 = tf.layers.conv2d_transpose(intermediate_out[1], filters = 64, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_3')
+
+    up4 = intermediate_out[0]
+
+    up5 = tf.layers.conv2d_transpose(up4 + up3 + up2 + up1, filters = 2, kernel_size = [8, 8], strides = (4, 4), padding = 'same',
+                                     activation = None, name = 'upsample_5')
+
+    return up5
+
+
+def FCN3(image, mean, variance, phase):
+    """
+    function defining fcn model
+    :param image: input image tensor in the flattened form
+    :return: model output tensor node
+    """
+
+    image = tf.cast(image, tf.float32)
+    image_reshape = tf.reshape(image, [-1, 512, 512, 3])
+
+    image_norm = tf.nn.batch_normalization(image_reshape, mean, variance, None, None, 0.0001)
+
+    model = resnet_model.Model(
+        resnet_size = 50,
+        bottleneck = False,
+        num_classes = 2,
+        num_filters = 64,
+        kernel_size = 7,
+        conv_stride = 2,
+        first_pool_size = 3,
+        first_pool_stride = 2,
+        block_sizes = [3, 4, 6, 3],
+        block_strides = [1, 2, 2, 2],
+        resnet_version = 1,
+        data_format = 'channels_last',
+    )
+    resnet_out = model(image_norm, phase)
+    intermediate_out = [v.values()[0] for v in tf.get_default_graph().get_operations() if 'block_layer' in v.name]
+
+    conv1 = tf.layers.conv2d(intermediate_out[3], filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
+                             activation = tf.nn.relu, name = 'conv1_1x1')
+    
+    conv2 = tf.layers.conv2d(conv1, filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
+                             activation = tf.nn.relu, name = 'conv2_1x1')
+
     up1 = tf.layers.conv2d_transpose(conv2, filters = 256, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
-                                     activation = None, name = 'upsample_1')
+                                     activation = tf.nn.relu, name = 'upsample_1')
 
     up2 = tf.layers.conv2d_transpose(up1 + intermediate_out[2], filters = 128, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
-                                     activation = None, name = 'upsample_2')
+                                     activation = tf.nn.relu, name = 'upsample_2')
 
     up3 = tf.layers.conv2d_transpose(up2 + intermediate_out[1], filters = 64, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
-                                     activation = None, name = 'upsample_3')
+                                     activation = tf.nn.relu, name = 'upsample_3')
+
+    up4 = tf.layers.conv2d_transpose(up3, filters = 2, kernel_size = [8, 8], strides = (4, 4), padding = 'same',
+                                     activation = None, name = 'upsample_4')
+
+    return up4
+
+
+def FCN4(image, mean, variance, phase):
+    """
+    function defining fcn model
+    :param image: input image tensor in the flattened form
+    :return: model output tensor node
+    """
+
+    image = tf.cast(image, tf.float32)
+    image_reshape = tf.reshape(image, [-1, 512, 512, 3])
+
+    image_norm = tf.nn.batch_normalization(image_reshape, mean, variance, None, None, 0.0001)
+
+    model = resnet_model.Model(
+        resnet_size = 50,
+        bottleneck = False,
+        num_classes = 2,
+        num_filters = 64,
+        kernel_size = 7,
+        conv_stride = 2,
+        first_pool_size = 3,
+        first_pool_stride = 2,
+        block_sizes = [3, 4, 6, 3],
+        block_strides = [1, 2, 2, 2],
+        resnet_version = 1,
+        data_format = 'channels_last',
+    )
+    resnet_out = model(image_norm, phase)
+    intermediate_out = [v.values()[0] for v in tf.get_default_graph().get_operations() if 'block_layer' in v.name]
+
+    conv1 = tf.layers.conv2d(intermediate_out[3], filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
+                             activation = tf.nn.relu, name = 'conv1_1x1')
+    
+    conv2 = tf.layers.conv2d(conv1, filters = 512, kernel_size = [1, 1], strides = (1, 1), padding = 'same',
+                             activation = tf.nn.relu, name = 'conv2_1x1')
+
+    up1 = tf.layers.conv2d_transpose(conv2, filters = 256, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_1')
+
+    up2 = tf.layers.conv2d_transpose(up1 + intermediate_out[2], filters = 128, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_2')
+
+    up3 = tf.layers.conv2d_transpose(up2 + intermediate_out[1], filters = 64, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
+                                     activation = tf.nn.relu, name = 'upsample_3')
 
     up4 = tf.layers.conv2d_transpose(up3 + intermediate_out[0], filters = 3, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
-                                     activation = None, name = 'upsample_4')
+                                     activation = tf.nn.relu, name = 'upsample_4')
 
     up5 = tf.layers.conv2d_transpose(up4, filters = 2, kernel_size = [4, 4], strides = (2, 2), padding = 'same',
                                      activation = None, name = 'upsample_5')
@@ -99,6 +247,8 @@ def evaluate(logits, labels):
     """
     prediction, _ = predict(logits)
     accuracy, accuracy_op = tf.metrics.accuracy(labels = labels, predictions = prediction)
+    # mean_iou, iou_op = tf.metrics.mean_iou(labels = labels, predictions = prediction, num_classes = 2) 
+    # return accuracy, accuracy_op, mean_iou, iou_op
     return accuracy, accuracy_op
 
 def train(logits, labels, learning_rate, l2_regularization, step, train_var):

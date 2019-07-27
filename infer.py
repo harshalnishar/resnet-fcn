@@ -40,8 +40,8 @@ if __name__ == "__main__":
     image_queue = data["features"]
     label_queue = data["label"]
     
-    with tf.device('/gpu:0'):
-        logits = model.dnn(image_queue, mean, variance, False)
+    with tf.device('/gpu:2'):
+        logits = model.FCN2(image_queue, mean, variance, False)
         prediction, probability = model.predict(logits)
         _, accuracy = model.evaluate(logits, label_queue)
 
